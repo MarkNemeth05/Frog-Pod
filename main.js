@@ -132,6 +132,18 @@ setInterval(() => { if (document.getElementById('timer-run').classList.contains(
 const canvas = document.getElementById('pondCanvas');
 const ctx = canvas.getContext('2d');
 
+function resizeCanvas() {
+  const ratio = window.devicePixelRatio || 1;
+  const w = 540, h = 700; // logical size
+  canvas.style.width = w + "px";
+  canvas.style.height = h + "px";
+  canvas.width = w * ratio;
+  canvas.height = h * ratio;
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
 let selectedId = null;
 let animReq = null;
 const TIER_NAMES = {1:'Baby Frog',2:'Emo Teen Frog',3:'Smart Frog',4:'Business Frog',5:'Rich Frog',6:'Fit Frog',7:'Old Frog',8:'God Frog',9:'Galaxy Frog'};
