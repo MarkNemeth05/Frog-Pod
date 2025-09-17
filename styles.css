@@ -33,3 +33,14 @@ dialog{ border:none; border-radius:14px; padding:16px; }
 .biggest{ font-size:20px; font-weight:700; color:#2a473a; }
 #pondCanvas{ width:100%; border:1px solid var(--soft); border-radius:12px; background:#eaf3ee; }
 .biggest-img{ width:128px; height:128px; object-fit:contain; }
+/* tiny icon button for history delete */
+.icon-btn{
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  margin-left: 8px;
+  opacity: .75;
+}
+.icon-btn:hover{ opacity: 1; }

@@ -349,13 +349,42 @@ releaseAutoBtn.addEventListener('click', ()=>{ spawnBatch(state.podCount); state
 const historyList = document.getElementById('historyList');
 function renderHistory(){
   historyList.innerHTML = '';
-  if (!state.history.length){ historyList.innerHTML = `<div class="item"><div>No sessions yet. Run a timer!</div></div>`; return; }
-  for (const h of state.history){
-    const row = document.createElement('div');
-    row.className='item';
-    row.innerHTML = `<div class="title">${h.title}</div><div class="meta">${mmss(h.seconds)}</div>`;
-    historyList.appendChild(row);
+  if (!state.history.length){
+    historyList.innerHTML = `<div class="item"><div>No sessions yet. Run a timer!</div></div>`;
+    return;
   }
+
+  state.history.forEach((h, idx) => {
+    const row = document.createElement('div');
+    row.className = 'item';
+
+    const title = document.createElement('div');
+    title.className = 'title';
+    title.textContent = h.title;
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = mmss(h.seconds);
+
+    const del = document.createElement('button');
+    del.className = 'icon-btn';
+    del.title = 'Delete';
+    del.ariaLabel = 'Delete';
+    del.textContent = '🗑️';
+
+    del.addEventListener('click', () => {
+      const ok = confirm(`Delete "${h.title}" (${mmss(h.seconds)}) from history?`);
+      if (!ok) return;
+      state.history.splice(idx, 1);
+      save();
+      renderHistory();
+    });
+
+    row.appendChild(title);
+    row.appendChild(meta);     // .meta already has margin-left:auto in CSS
+    row.appendChild(del);      // sits on the far right, after duration
+    historyList.appendChild(row);
+  });
 }
 
 // todos
