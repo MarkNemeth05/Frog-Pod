@@ -1,4 +1,4 @@
-const CACHE = 'frogfocus-v1';
+const CACHE = 'frogfocus-v2';
 const ASSETS = [
   './',
   './index.html',
