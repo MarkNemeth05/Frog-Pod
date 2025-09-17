@@ -1,0 +1,34 @@
+:root{ --green:#2f6f4e; --bg:#f5f8f6; --card:#ffffff; --ink:#1f2a24; --soft:#dbe7e0; }
+*{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+html,body{ margin:0; padding:0; background:var(--bg); color:var(--ink); font:16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+.topbar{ position:sticky; top:0; z-index:2; background:var(--card); border-bottom:1px solid var(--soft); padding:10px; display:flex; align-items:center; gap:10px; }
+.brand{ font-weight:700; color:var(--green); }
+.tabs{ display:flex; gap:6px; overflow:auto; }
+.tab{ border:1px solid var(--soft); background:#fff; padding:6px 10px; border-radius:10px; }
+.tab.active{ background:var(--green); color:#fff; border-color:var(--green); }
+main{ max-width:720px; margin:0 auto; padding:10px; }
+.view{ display:none; }
+.view.visible{ display:block; }
+.card{ background:var(--card); border:1px solid var(--soft); border-radius:14px; padding:14px; margin:10px 0; }
+.center{ display:flex; flex-direction:column; align-items:center; gap:12px; padding:20px; }
+.row{ display:flex; align-items:center; gap:10px; }
+.spacer{ height:10px; }
+.label{ font-weight:600; color:#2a473a; }
+.input{ width:100%; padding:10px 12px; border:1px solid var(--soft); border-radius:10px; }
+.slider{ width:100%; accent-color: var(--green); }
+.value-pill{ min-width:84px; text-align:center; padding:8px 10px; border:1px solid var(--soft); border-radius:10px; background:#fff; }
+.value-pill small{ display:block; font-size:12px; opacity:.7; margin-top:-2px; }
+.big-time{ font-size:56px; font-weight:800; color:#2a473a; text-align:center; margin:10px 0 6px; }
+.btn{ border:1px solid var(--soft); background:#fff; border-radius:12px; padding:10px 16px; }
+.btn.primary{ background:var(--green); color:#fff; border-color:var(--green); }
+.subtle{ opacity:.8; }
+.stat{ margin-left:auto; opacity:.8; }
+.tip{ text-align:center; opacity:.7; padding:10px; }
+.list{ display:flex; flex-direction:column; gap:10px; }
+.list .item{ background:#fff; border:1px solid var(--soft); border-radius:12px; padding:10px 12px; display:flex; align-items:center; gap:10px; }
+.item .title{ font-weight:600; }
+.item .meta{ margin-left:auto; opacity:.7; }
+dialog{ border:none; border-radius:14px; padding:16px; }
+.modal-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:10px; }
+.biggest{ font-size:20px; font-weight:700; color:#2a473a; }
+#pondCanvas{ width:100%; border:1px solid var(--soft); border-radius:12px; background:#eaf3ee; }

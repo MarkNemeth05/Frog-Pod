@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Frog Focus</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2f6f4e">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">🐸 Frog Focus</div>
+    <nav class="tabs">
+      <button data-view="timer-setup" class="tab active">Timer</button>
+      <button data-view="pond" class="tab">Pond</button>
+      <button data-view="history" class="tab">History</button>
+      <button data-view="todo" class="tab">To-Do</button>
+      <button data-view="biggest" class="tab">Biggest</button>
+    </nav>
+  </header>
+
+  <main id="views">
+    <!-- TIMER SETUP -->
+    <section id="timer-setup" class="view visible">
+      <div class="card">
+        <label class="label">Title</label>
+        <input id="timerTitle" class="input" placeholder="Study" maxlength="30" />
+        <div class="spacer"></div>
+
+        <div class="row">
+          <div class="value-pill"><span id="timerMinutesText">25</span><small>min</small></div>
+          <input id="timerSlider" type="range" min="1" max="120" step="1" value="25" class="slider" />
+        </div>
+
+        <div class="big-time" id="timerPreview">25:00</div>
+        <button id="startTimerBtn" class="btn primary">Start</button>
+      </div>
+    </section>
+
+    <!-- TIMER RUN -->
+    <section id="timer-run" class="view">
+      <div class="center">
+        <div class="big-time" id="countdown">25:00</div>
+        <div class="subtle" id="queuedInfo">Frogs queued so far: 0</div>
+        <button id="cancelTimerBtn" class="btn">Cancel</button>
+      </div>
+    </section>
+
+    <!-- POD MODAL -->
+    <dialog id="podModal">
+      <h3>Frog Pod Ready!</h3>
+      <p>You earned <b><span id="podCount">0</span></b> baby frogs.</p>
+      <div class="modal-actions">
+        <button id="releaseManualBtn" class="btn primary">Release (Manual Merge)</button>
+        <button id="releaseAutoBtn" class="btn">Release + Auto-merge</button>
+      </div>
+    </dialog>
+
+    <!-- POND -->
+    <section id="pond" class="view">
+      <div class="row">
+        <label class="switch">
+          <input id="autoMergeToggle" type="checkbox">
+          <span>Auto-merge</span>
+        </label>
+        <div class="stat">Frogs: <span id="frogCount">0</span></div>
+      </div>
+      <canvas id="pondCanvas" width="540" height="700"></canvas>
+      <div class="tip">Tip: tap two same-tier frogs to merge</div>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="history" class="view">
+      <div class="list" id="historyList"></div>
+    </section>
+
+    <!-- TODO -->
+    <section id="todo" class="view">
+      <div class="card">
+        <label class="label">New goal</label>
+        <input id="todoTitle" class="input" placeholder="Chapter 3 notes" maxlength="40" />
+        <div class="row">
+          <div class="value-pill"><span id="todoMinutesText">25</span><small>min</small></div>
+          <input id="todoSlider" type="range" min="1" max="120" step="1" value="25" class="slider" />
+          <button id="addTodoBtn" class="btn">Add</button>
+        </div>
+      </div>
+      <div class="list" id="todoList"></div>
+    </section>
+
+    <!-- BIGGEST -->
+    <section id="biggest" class="view">
+      <div class="card center">
+        <div id="biggestInfo" class="biggest">Highest Tier: 1 – Baby Frog</div>
+        <div class="tip">Evolve frogs by merging in the Pond.</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="main.js"></script>
+</body>
+</html>
