@@ -28,6 +28,25 @@ let W = 540, H = 700;        // logical canvas size (updated on resize)
 function save() { localStorage.setItem(SKEY, JSON.stringify(state)); }
 function load() { try { const raw = localStorage.getItem(SKEY); if (raw) Object.assign(state, JSON.parse(raw)); } catch(e){} }
 
+function confirmDialog(message, title = 'Confirm'){
+  return new Promise(resolve=>{
+    const dlg = document.getElementById('confirmDialog');
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMsg').textContent = message;
+    const yes = document.getElementById('confirmYes');
+    const no  = document.getElementById('confirmNo');
+
+    const cleanup = ()=>{ yes.onclick=null; no.onclick=null; try{ dlg.close(); }catch{} };
+
+    yes.onclick = ()=>{ cleanup(); resolve(true); };
+    no.onclick  = ()=>{ cleanup(); resolve(false); };
+
+    // Safari/iOS PWA fallback
+    if (typeof dlg.showModal === 'function') dlg.showModal();
+    else dlg.setAttribute('open','');
+  });
+}
+
 // ------- Views / routing -------
 const views = [...document.querySelectorAll('.view')];
 const tabs  = [...document.querySelectorAll('.tab')];
@@ -317,8 +336,16 @@ canvas.addEventListener('click', (ev)=>{
   const a = state.frogs.find(f=>f.id===selectedId);
   const b = hit;
   if (a && b && a.tier===b.tier && !a.merging && !b.merging){
-    scheduleMerge(a,b); // wait 2s, then move & merge
+  // cancel any pending auto-merge for these frogs, then merge immediately
+  for (let i = pendingMerges.length - 1; i >= 0; i--) {
+    const p = pendingMerges[i];
+    if (p.aId === a.id || p.bId === a.id || p.aId === b.id || p.bId === b.id) {
+      pendingMerges.splice(i, 1);
+    }
   }
+  reserved.delete(a.id); reserved.delete(b.id);
+  beginMerge(a, b); // <-- no wait for manual merges
+}
   selectedId=null;
 });
 

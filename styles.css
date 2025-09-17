@@ -44,3 +44,4 @@ dialog{ border:none; border-radius:14px; padding:16px; }
   opacity: .75;
 }
 .icon-btn:hover{ opacity: 1; }
+.icon-btn { padding: 6px; font-size: 20px; }  /* larger tap target */
