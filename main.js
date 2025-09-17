@@ -1,4 +1,4 @@
-// ------- PWA SW register -------
+// ------- SW register -------
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js');
@@ -6,7 +6,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ------- State & persistence -------
-const SKEY = 'frogfocus_state_v1';
+const SKEY = 'frogpod_state_v1';
 const state = {
   timerTitle: 'Study',
   timerTargetSec: 25 * 60,
@@ -17,21 +17,18 @@ const state = {
   autoMerge: false,
   history: [],           // {title, seconds, endedAt}
   todos: [],             // {title, minutes}
-  frogs: [],             // [{tier,x,y}]
+  frogs: [],             // [{id,tier,x,y,vx,vy,phase,hopAmp,hopSpeed,merging,tx,ty}]
   unlockedMax: 1
 };
 const SPAWN_MS = 3000;
 const W = 540, H = 700; // canvas size
 
-function save() {
-  localStorage.setItem(SKEY, JSON.stringify(state));
-}
+function save() { localStorage.setItem(SKEY, JSON.stringify(state)); }
 function load() {
   try {
     const raw = localStorage.getItem(SKEY);
     if (!raw) return;
-    const s = JSON.parse(raw);
-    Object.assign(state, s);
+    Object.assign(state, JSON.parse(raw));
   } catch(e) { console.warn('load err', e); }
 }
 
@@ -116,7 +113,6 @@ cancelTimerBtn.addEventListener('click', () => {
 });
 
 function tick(){
-  // called every 200ms while on timer-run
   if (!state.timerStartEpoch) return;
   const elapsed = (Date.now() - state.timerStartEpoch)/1000;
   const remaining = Math.max(0, state.timerTargetSec - elapsed);
@@ -138,7 +134,7 @@ const ctx = canvas.getContext('2d');
 
 let selectedId = null;
 let animReq = null;
-const TIER_NAMES = {1:'Baby Frog',2:'Emo Teen Frog',3:'Graduate Frog',4:'Business Frog',5:'Rich Frog',6:'Fit Frog',7:'Elder Frog',8:'God Frog',9:'Galaxy Frog'};
+const TIER_NAMES = {1:'Baby Frog',2:'Emo Teen Frog',3:'Smart Frog',4:'Business Frog',5:'Rich Frog',6:'Fit Frog',7:'Old Frog',8:'God Frog',9:'Galaxy Frog'};
 const MAX_TIER = 9;
 
 // --- Load frog images by tier (your filenames)
@@ -153,19 +149,6 @@ const TIER_FILES = {
   8: 'assets/frogs/GodFrog.png',
   9: 'assets/frogs/GalaxyFrog.png'
 };
-
-// Optional pond background
-let BG_IMG = null;
-const BG_SRC = 'assets/frogs/Background.png';
-function loadBackground(){
-  return new Promise(resolve=>{
-    const img = new Image();
-    img.onload = ()=>{ BG_IMG = img; resolve(); };
-    img.onerror = ()=> resolve();
-    img.src = BG_SRC;
-  });
-}
-
 const FROG_IMG = {};
 function loadImages(map){
   const jobs = Object.entries(map).map(([k,src]) => new Promise(resolve => {
@@ -177,6 +160,17 @@ function loadImages(map){
   return Promise.all(jobs);
 }
 
+// Optional Background
+let BG_IMG = null;
+const BG_SRC = 'assets/frogs/Background.png';
+function loadBackground(){
+  return new Promise(resolve=>{
+    const img = new Image();
+    img.onload = ()=>{ BG_IMG = img; resolve(); };
+    img.onerror = ()=> resolve();
+    img.src = BG_SRC;
+  });
+}
 
 function random(min,max){ return Math.random()*(max-min)+min; }
 function addFrog(tier, x, y){
@@ -193,6 +187,7 @@ function addFrog(tier, x, y){
   });
   state.unlockedMax = Math.max(state.unlockedMax, tier);
 }
+
 function spawnBatch(n){
   const cx = W/2, cy = H/2 + 40, R = 160;
   for(let i=0;i<n;i++){
@@ -200,6 +195,19 @@ function spawnBatch(n){
     addFrog(1, Math.round(cx + Math.cos(ang)*r), Math.round(cy + Math.sin(ang)*r));
   }
   save();
+  requestPaint(); // ensure visible immediately
+}
+
+// --- merge system ---
+let mergePairs = []; // [{aId,bId,mx,my}]
+const MERGE_RADIUS = 6;
+
+function beginMerge(a, b) {
+  const mx = (a.x + b.x) / 2;
+  const my = (a.y + b.y) / 2;
+  a.merging = true; a.tx = mx; a.ty = my;
+  b.merging = true; b.tx = mx; b.ty = my;
+  mergePairs.push({ aId: a.id, bId: b.id, mx, my });
 }
 
 function updateFrogs(dt){
@@ -226,24 +234,41 @@ function updateFrogs(dt){
     }
     f.x=cx; f.y=cy+yb;
   }
+
+  // complete merges when both frogs arrive
+  for (let i = mergePairs.length - 1; i >= 0; i--) {
+    const pair = mergePairs[i];
+    const a = state.frogs.find(f => f.id === pair.aId);
+    const b = state.frogs.find(f => f.id === pair.bId);
+    if (!a || !b) { mergePairs.splice(i,1); continue; }
+    const da = Math.hypot(a.x - pair.mx, a.y - pair.my);
+    const db = Math.hypot(b.x - pair.mx, b.y - pair.my);
+    if (da <= MERGE_RADIUS && db <= MERGE_RADIUS) {
+      const tier = Math.min(MAX_TIER, a.tier + 1);
+      state.frogs = state.frogs.filter(f => f.id !== a.id && f.id !== b.id);
+      addFrog(tier, pair.mx, pair.my);
+      state.unlockedMax = Math.max(state.unlockedMax, tier);
+      mergePairs.splice(i,1);
+      save();
+      renderBiggest();
+      if (state.autoMerge) autoMergeSweep();
+    }
+  }
 }
 
 function drawFrogs(){
-  ctx.clearRect(0,0,W,H);
+  // background first (scaled)
+  if (BG_IMG) ctx.drawImage(BG_IMG, 0, 0, canvas.width, canvas.height);
+  else ctx.clearRect(0,0,W,H);
+
   for(const f of state.frogs){
     const img = FROG_IMG[f.tier];
     const size = 48 + f.tier*8; // scale by tier
     const r = size/2;
 
-    if (BG_IMG){
-      ctx.drawImage(BG_IMG, 0, 0, canvas.width, canvas.height);
-    } else {
-      ctx.clearRect(0,0,W,H);
-    }
     if (img){
       ctx.drawImage(img, f.x - r, f.y - r, size, size);
     } else {
-      // fallback circle if image missing
       ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, Math.PI*2);
       ctx.fillStyle = `hsl(${(f.tier*35)%360} 60% 60%)`; ctx.fill();
     }
@@ -277,41 +302,22 @@ canvas.addEventListener('click', (ev)=>{
   const y = (ev.clientY - rect.top) * (canvas.height/rect.height);
   // find topmost frog
   let hit=null;
-for(let i=state.frogs.length-1;i>=0;i--){
-  const f = state.frogs[i];
-  const r = (48 + f.tier*8)/2; // same as draw
-  if (Math.hypot(f.x-x,f.y-y) <= r){ hit=f; break; }
-}
-
+  for(let i=state.frogs.length-1;i>=0;i--){
+    const f = state.frogs[i];
+    const r = (48 + f.tier*8)/2;
+    if (Math.hypot(f.x-x,f.y-y) <= r){ hit=f; break; }
+  }
   if (!hit) { selectedId=null; drawFrogs(); return; }
   if (selectedId===null){ selectedId = hit.id; drawFrogs(); return; }
   if (selectedId===hit.id){ selectedId=null; drawFrogs(); return; }
   const a = state.frogs.find(f=>f.id===selectedId);
   const b = hit;
   if (a && b && a.tier===b.tier && !a.merging && !b.merging){
-    const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
-    a.merging=b.merging=true; a.tx=mx; a.ty=my; b.tx=mx; b.ty=my;
-    // complete after they meet
-    setTimeout(()=>{
-      // remove if still present
-      const ai = state.frogs.findIndex(f=>f.id===a.id);
-      const bi = state.frogs.findIndex(f=>f.id===b.id);
-      if (ai>-1 && bi>-1){
-        const tier = Math.min(MAX_TIER, a.tier+1);
-        const idA = a.id, idB = b.id;
-        // remove both
-        state.frogs = state.frogs.filter(f=>f.id!==idA && f.id!==idB);
-        addFrog(tier, mx, my);
-        state.unlockedMax = Math.max(state.unlockedMax, tier);
-        save();
-        renderBiggest();
-      }
-    }, 400); // simple completion window
+    beginMerge(a,b);
   }
   selectedId=null; drawFrogs();
 });
 
-document.getElementById('autoMergeToggle').checked = state.autoMerge;
 document.getElementById('autoMergeToggle').addEventListener('change', (e)=>{
   state.autoMerge = e.target.checked; save();
   autoMergeSweep();
@@ -319,24 +325,13 @@ document.getElementById('autoMergeToggle').addEventListener('change', (e)=>{
 
 function autoMergeSweep(){
   if (!state.autoMerge) return;
-  // bucket by tier
   const buckets = {};
-  for (const f of state.frogs){ if (!f.merging) (buckets[f.tier]??=[]).push(f); }
+  for (const f of state.frogs){ if (!f.merging) (buckets[f.tier] ??= []).push(f); }
   for (const tier in buckets){
     const list = buckets[tier];
     for (let i=0;i+1<list.length;i+=2){
       const a=list[i], b=list[i+1];
-      const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
-      a.merging=b.merging=true; a.tx=mx; a.ty=my; b.tx=mx; b.ty=my;
-      setTimeout(()=>{
-        const ai = state.frogs.findIndex(f=>f.id===a.id);
-        const bi = state.frogs.findIndex(f=>f.id===b.id);
-        if (ai>-1 && bi>-1){
-          state.frogs = state.frogs.filter(f=>f.id!==a.id && f.id!==b.id);
-          addFrog(Math.min(MAX_TIER, a.tier+1), mx, my);
-          save(); renderBiggest();
-        }
-      }, 400);
+      if (!a.merging && !b.merging) beginMerge(a,b);
     }
   }
 }
@@ -387,7 +382,6 @@ function renderTodos(){
       state.timerTargetSec = Math.max(60, t.minutes*60);
       save();
       updateTimerSetupUI();
-      // start immediately:
       state.timerStartEpoch = Date.now(); state.pretendSpawnCount = 0; save();
       show('timer-run');
     });
@@ -408,40 +402,38 @@ addTodoBtn.addEventListener('click', ()=>{
 });
 
 // ------- Biggest -------
+const biggestImg = document.getElementById('biggestImg');
 function renderBiggest(){
   const info = document.getElementById('biggestInfo');
   const tier = state.unlockedMax || 1;
   info.textContent = `Highest Tier: ${tier} – ${TIER_NAMES[tier]||'Frog'}`;
+  const img = FROG_IMG[tier];
+  if (img){
+    biggestImg.src = img.src;
+    biggestImg.style.display = 'block';
+  } else {
+    biggestImg.style.display = 'none';
+  }
 }
 
 // ------- Boot -------
 function restoreUI(){
   load();
-  // resume timer (compute on resume)
   updateTimerSetupUI();
   renderHistory(); renderTodos(); renderBiggest();
   document.getElementById('autoMergeToggle').checked = !!state.autoMerge;
-  if (state.frogs.length===0){
-    // nothing
-  } else {
-    requestPaint();
-  }
-  // pod pending?
+  if (state.frogs.length>0) requestPaint();
   if (state.podOpen && state.podCount>0){
     podCountEl.textContent = state.podCount; podModal.showModal();
   }
 }
-loadImages(TIER_FILES).then(()=>{
-  restoreUI();
-  show('timer-setup');
-});
 
 Promise.all([ loadImages(TIER_FILES), loadBackground() ]).then(()=>{
   restoreUI();
   show('timer-setup');
 });
 
-// re-render countdown on visibility resume (iOS may pause timers)
+// Recompute timer when app regains focus
 document.addEventListener('visibilitychange', ()=>{
   if (document.visibilityState==='visible' && document.getElementById('timer-run').classList.contains('visible')) tick();
 });
