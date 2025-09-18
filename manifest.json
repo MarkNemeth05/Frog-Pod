@@ -1,6 +1,6 @@
 {
-  "name": "Frog Focus",
-  "short_name": "FrogFocus",
+  "name": "Frog Pod",
+  "short_name": "FrogPod",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#f5f8f6",

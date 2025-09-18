@@ -1,12 +1,18 @@
-// ------- SW register -------
+// ----- Service worker registration -----
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js');
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      const check = () => reg.update();
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') check();
+      });
+      check();
+    });
   });
 }
 
-// ------- State & persistence -------
-const SKEY = 'frogpod_state_v2';
+// ----- App state -----
+const SKEY = 'frogpod_state_v3';
 const state = {
   timerTitle: 'Study',
   timerTargetSec: 25 * 60,
@@ -15,164 +21,69 @@ const state = {
   podOpen: false,
   podCount: 0,
   autoMerge: false,
+  musicOn: true,
   history: [],
   todos: [],
   frogs: [],
   unlockedMax: 1
 };
-// --- MUSIC TRACKS (add your MP3 filenames here) ---
-const TRACKS = [
-  'assets/audio/track1.mp3',
-  'assets/audio/track2.mp3',
-  'assets/audio/track3.mp3',
-  'assets/audio/track4.mp3',
-  'assets/audio/track5.mp3',
-  'assets/audio/track6.mp3',
-  'assets/audio/track7.mp3',
-  'assets/audio/track8.mp3',
-  'assets/audio/track9.mp3',
-  'assets/audio/track10.mp3',
-  'assets/audio/track11.mp3',
-  'assets/audio/track12.mp3',
-  'assets/audio/track13.mp3',
-  'assets/audio/track14.mp3',
-  'assets/audio/track15.mp3',
-  'assets/audio/track16.mp3',
-  'assets/audio/track17.mp3',
-  'assets/audio/track18.mp3',
-  'assets/audio/track19.mp3',
-  'assets/audio/track20.mp3',
-  'assets/audio/track21.mp3',
-  'assets/audio/track22.mp3',
-  'assets/audio/track23.mp3',
-  'assets/audio/track24.mp3',
-  'assets/audio/track25.mp3',
-  'assets/audio/track26.mp3',
-  // add as many as you like
-];
-// Simple shuffle player that runs while timer is active
-const audio = new Audio();
-audio.preload = 'auto';
-let currentTrack = -1;
 
-function pickNextTrack() {
-  if (TRACKS.length === 0) return null;
-  // pick a random index different from current, if possible
-  let idx = Math.floor(Math.random() * TRACKS.length);
-  if (TRACKS.length > 1 && idx === currentTrack) {
-    idx = (idx + 1) % TRACKS.length;
-  }
-  currentTrack = idx;
-  return TRACKS[idx];
-}
+// spawn interval (change here if needed)
+const SPAWN_MS = 30 * 60 * 1000; // 30 minutes per spawn (adjust as you like)
 
-function startMusic(){
-  if (!state.musicOn || !state.timerStartEpoch || TRACKS.length === 0) return;
-  const src = pickNextTrack();
-  if (!src) return;
-  audio.src = src;
-  audio.currentTime = 0;
-  audio.play().catch(()=>{/* autoplay blocked? user just clicked Start so should be fine */});
-}
+// logical canvas size (updated to fit screen on resize)
+let W = 540, H = 700;
 
-function stopMusic(){
-  try { audio.pause(); } catch {}
-  audio.currentTime = 0;
-}
+// ----- Utility / persistence -----
+const TIER_NAMES = {1:'Baby Frog',2:'Emo Teen Frog',3:'Smart Frog',4:'Business Frog',5:'Rich Frog',6:'Fit Frog',7:'Old Frog',8:'God Frog',9:'Galaxy Frog'};
+const MAX_TIER = 9;
 
-audio.addEventListener('ended', ()=>{
-  // continue only if timer is still running and music is on
-  if (state.timerStartEpoch && state.musicOn) startMusic();
-});
+function save(){ localStorage.setItem(SKEY, JSON.stringify(state)); }
+function load(){ try{ const raw=localStorage.getItem(SKEY); if(raw) Object.assign(state, JSON.parse(raw)); }catch(e){} }
+function mmss(sec){ sec=Math.max(0,sec|0); const m=(sec/60|0), s=sec%60; return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
 
-const SPAWN_MS = const SPAWN_MS = 30 * 60 * 1000; // 30 minutes per spawn
-let W = 540, H = 700;        // logical canvas size (updated on resize)
-
-// persistence
-function save() { localStorage.setItem(SKEY, JSON.stringify(state)); }
-function load() { try { const raw = localStorage.getItem(SKEY); if (raw) Object.assign(state, JSON.parse(raw)); } catch(e){} }
-
-function confirmDialog(message, title = 'Confirm'){
-  return new Promise(resolve=>{
-    const dlg = document.getElementById('confirmDialog');
-    document.getElementById('confirmTitle').textContent = title;
-    document.getElementById('confirmMsg').textContent = message;
-    const yes = document.getElementById('confirmYes');
-    const no  = document.getElementById('confirmNo');
-
-    const cleanup = ()=>{ yes.onclick=null; no.onclick=null; try{ dlg.close(); }catch{} };
-
-    yes.onclick = ()=>{ cleanup(); resolve(true); };
-    no.onclick  = ()=>{ cleanup(); resolve(false); };
-
-    // Safari/iOS PWA fallback
-    if (typeof dlg.showModal === 'function') dlg.showModal();
-    else dlg.setAttribute('open','');
-  });
-}
-
-// ------- Views / routing -------
+// ----- Routing -----
 const views = [...document.querySelectorAll('.view')];
 const tabs  = [...document.querySelectorAll('.tab')];
-function show(id) {
-  views.forEach(v => v.classList.toggle('visible', v.id === id));
-  tabs.forEach(t => t.classList.toggle('active', t.dataset.view === id));
-  if (id === 'pond') requestPaint();
-  if (id === 'history') renderHistory();
-  if (id === 'todo') renderTodos();
-  if (id === 'biggest') renderBiggest();
+function show(id){
+  views.forEach(v => v.classList.toggle('visible', v.id===id));
+  tabs.forEach(t => t.classList.toggle('active', t.dataset.view===id));
+  if (id==='pond') requestPaint();
+  if (id==='history') renderHistory();
+  if (id==='todo') renderTodos();
+  if (id==='biggest') renderBiggest();
 }
-tabs.forEach(b => b.addEventListener('click', () => show(b.dataset.view)));
+tabs.forEach(b => b.addEventListener('click', ()=> show(b.dataset.view)));
 
-// ------- Timer setup -------
+// ----- Timer setup -----
 const timerTitleEl = document.getElementById('timerTitle');
 const timerSlider  = document.getElementById('timerSlider');
 const timerMinTxt  = document.getElementById('timerMinutesText');
 const timerPreview = document.getElementById('timerPreview');
 const startTimerBtn= document.getElementById('startTimerBtn');
-const musicToggleSetup = document.getElementById('musicToggleSetup');
-const musicToggleRun   = document.getElementById('musicToggleRun');
 
-[musicToggleSetup, musicToggleRun].forEach(btn=>{
-  if (!btn) return;
-  btn.addEventListener('click', ()=>{
-    state.musicOn = !state.musicOn;
-    save();
-    updateMusicUI();
-    if (!state.musicOn) {
-      stopMusic();
-    } else {
-      // if timer is running and user re-enabled, resume
-      if (state.timerStartEpoch) startMusic();
-    }
-  });
-});
-
-function mmss(sec){ sec=Math.max(0,Math.floor(sec)); const m=(sec/60|0), s=sec%60; return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
 function updateTimerSetupUI(){
   timerMinTxt.textContent = Math.round(state.timerTargetSec/60);
   timerPreview.textContent = mmss(state.timerTargetSec);
   timerTitleEl.value = state.timerTitle;
   timerSlider.value = Math.round(state.timerTargetSec/60);
 }
-timerTitleEl.addEventListener('input', () => { state.timerTitle = timerTitleEl.value || 'Study'; save(); });
-timerSlider.addEventListener('input', () => { state.timerTargetSec = Math.min(120, Math.max(1, parseInt(timerSlider.value))) * 60; updateTimerSetupUI(); save(); });
-startTimerBtn.addEventListener('click', () => {
+timerTitleEl.addEventListener('input', ()=>{ state.timerTitle = timerTitleEl.value || 'Study'; save(); });
+timerSlider.addEventListener('input', ()=>{ state.timerTargetSec = Math.min(120,Math.max(1,parseInt(timerSlider.value))) * 60; updateTimerSetupUI(); save(); });
+startTimerBtn.addEventListener('click', ()=>{
   state.timerStartEpoch = Date.now();
   state.pretendSpawnCount = 0;
   save();
   show('timer-run');
-  // start music on user gesture (passes iOS autoplay)
-  if (state.musicOn) startMusic();
+  if (state.musicOn) startMusic(); // user gesture -> autoplay OK
 });
 
-
-// ------- Timer run -------
+// ----- Timer run -----
 const countdownEl = document.getElementById('countdown');
 const queuedInfo  = document.getElementById('queuedInfo');
 const cancelTimerBtn = document.getElementById('cancelTimerBtn');
-const podModal    = document.getElementById('podModal');
-const podCountEl  = document.getElementById('podCount');
+const podModal = document.getElementById('podModal');
+const podCountEl = document.getElementById('podCount');
 const releaseManualBtn = document.getElementById('releaseManualBtn');
 const releaseAutoBtn   = document.getElementById('releaseAutoBtn');
 
@@ -186,15 +97,15 @@ function finishTimer(finalSeconds){
   state.history.unshift({ title: state.timerTitle || 'Study', seconds: finalSeconds, endedAt: Date.now() });
   state.timerStartEpoch = null;
   state.pretendSpawnCount = 0;
+  stopMusic();
   save();
   podCountEl.textContent = state.podCount;
-  stopMusic();
-  podModal.showModal();
+  try{ podModal.showModal(); }catch{}
   show('pond');
 }
-cancelTimerBtn.addEventListener('click', () => {
+cancelTimerBtn.addEventListener('click', ()=>{
   if (!state.timerStartEpoch) return;
-  const elapsed = Math.floor((Date.now() - state.timerStartEpoch)/1000);
+  const elapsed = ((Date.now() - state.timerStartEpoch)/1000)|0;
   finishTimer(elapsed);
 });
 function tick(){
@@ -205,26 +116,66 @@ function tick(){
   const newCount = computePretendSpawnCount();
   if (newCount !== state.pretendSpawnCount){ state.pretendSpawnCount = newCount; save(); }
   queuedInfo.textContent = `Frogs queued so far: ${state.pretendSpawnCount}`;
-  if (rem <= 0) finishTimer(Math.round(state.timerTargetSec));
+  if (rem <= 0) finishTimer(state.timerTargetSec|0);
 }
-setInterval(() => { if (document.getElementById('timer-run').classList.contains('visible')) tick(); }, 200);
+setInterval(()=>{ if (document.getElementById('timer-run').classList.contains('visible')) tick(); }, 200);
 
-// ------- Pond / frogs -------
+// ----- Music player -----
+const musicToggleSetup = document.getElementById('musicToggleSetup');
+const musicToggleRun   = document.getElementById('musicToggleRun');
+
+const TRACKS = Array.from({length:26}, (_,i)=>`assets/audio/track${i+1}.mp3`); // track1..track26
+const audio = new Audio(); audio.preload = 'auto';
+let currentTrack = -1;
+
+function pickNextTrack(){
+  if (!TRACKS.length) return null;
+  let idx = Math.floor(Math.random()*TRACKS.length);
+  if (TRACKS.length>1 && idx===currentTrack) idx = (idx+1)%TRACKS.length;
+  currentTrack = idx; return TRACKS[idx];
+}
+function startMusic(){
+  if (!state.musicOn || !state.timerStartEpoch || !TRACKS.length) return;
+  const src = pickNextTrack(); if (!src) return;
+  audio.src = src; audio.currentTime = 0;
+  audio.play().catch(()=>{ /* ignore */ });
+}
+function stopMusic(){ try{ audio.pause(); }catch{} audio.currentTime = 0; }
+audio.addEventListener('ended', ()=>{ if (state.timerStartEpoch && state.musicOn) startMusic(); });
+
+function updateMusicUI(){
+  const on = !!state.musicOn;
+  [musicToggleSetup, musicToggleRun].forEach(btn=>{
+    if (!btn) return;
+    btn.classList.toggle('on', on);
+    btn.classList.toggle('off', !on);
+  });
+}
+[musicToggleSetup, musicToggleRun].forEach(btn=>{
+  if (!btn) return;
+  btn.addEventListener('click', ()=>{
+    state.musicOn = !state.musicOn; save();
+    updateMusicUI();
+    if (!state.musicOn) stopMusic(); else if (state.timerStartEpoch) startMusic();
+  });
+});
+
+// ----- Pond / frogs -----
 const canvas = document.getElementById('pondCanvas');
-const ctx = canvas.getContext('2d', { alpha: true });
+const ctx = canvas.getContext('2d', { alpha:true });
 
-// high-DPI & responsive sizing (portrait)
-function resizeCanvas() {
+// retina + responsive portrait sizing
+function resizeCanvas(){
   const ratio = window.devicePixelRatio || 1;
-  const cssW = Math.min(document.body.clientWidth - 24, 720 - 24); // card padding-ish
-  const aspect = 700/540; // portrait
+  const cssW = Math.min(document.body.clientWidth - 24, 720 - 24);
+  const aspect = 700/540;
   const cssH = Math.round(cssW * aspect);
-  canvas.style.width  = cssW + 'px';
-  canvas.style.height = cssH + 'px';
+  canvas.style.width = cssW+'px';
+  canvas.style.height= cssH+'px';
   canvas.width  = Math.floor(cssW * ratio);
   canvas.height = Math.floor(cssH * ratio);
-  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-  W = cssW; H = cssH; // update logical bounds so frogs stay in view
+  ctx.setTransform(ratio,0,0,ratio,0,0);
+  W = cssW; H = cssH;
 }
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
@@ -232,43 +183,37 @@ window.addEventListener('resize', resizeCanvas);
 let selectedId = null;
 let animReq = null;
 
-const TIER_NAMES = {1:'Baby Frog',2:'Emo Teen Frog',3:'Smart Frog',4:'Business Frog',5:'Rich Frog',6:'Fit Frog',7:'Old Frog',8:'God Frog',9:'Galaxy Frog'};
-const MAX_TIER = 9;
-
-// images
 const TIER_FILES = {
-  1: 'assets/frogs/BabyFrog.png',
-  2: 'assets/frogs/TeenFrog.png',
-  3: 'assets/frogs/SmartFrog.png',
-  4: 'assets/frogs/BusinessFrog.png',
-  5: 'assets/frogs/RichFrog.png',
-  6: 'assets/frogs/FitFrog.png',
-  7: 'assets/frogs/OldFrog.png',
-  8: 'assets/frogs/GodFrog.png',
-  9: 'assets/frogs/GalaxyFrog.png'
+  1:'assets/frogs/BabyFrog.png',
+  2:'assets/frogs/TeenFrog.png',
+  3:'assets/frogs/SmartFrog.png',
+  4:'assets/frogs/BusinessFrog.png',
+  5:'assets/frogs/RichFrog.png',
+  6:'assets/frogs/FitFrog.png',
+  7:'assets/frogs/OldFrog.png',
+  8:'assets/frogs/GodFrog.png',
+  9:'assets/frogs/GalaxyFrog.png'
 };
 const FROG_IMG = {};
 function loadImages(map){
-  const jobs = Object.entries(map).map(([k,src]) => new Promise(resolve => {
+  const jobs = Object.entries(map).map(([k,src])=>new Promise(res=>{
     const img = new Image();
-    img.onload  = ()=>{ FROG_IMG[k]=img; resolve(); };
-    img.onerror = ()=>{ console.warn('img failed:', src); resolve(); };
+    img.onload = ()=>{ FROG_IMG[k]=img; res(); };
+    img.onerror= ()=>{ console.warn('img failed',src); res(); };
     img.src = src;
   }));
   return Promise.all(jobs);
 }
-let BG_IMG = null;
-(function loadBG(){
-  const img = new Image();
-  img.onload = ()=>{ BG_IMG = img; };
-  img.src = 'assets/frogs/Background.png';
+let BG_IMG=null; (()=>{
+  const img = new Image(); img.onload=()=>{ BG_IMG=img; };
+  img.src='assets/frogs/Background.png';
 })();
 
 function random(a,b){ return Math.random()*(b-a)+a; }
-function addFrog(tier, x, y){
+function addFrog(tier,x,y){
   state.frogs.push({
     id: crypto.randomUUID(),
-    tier, x, y,
+    tier,x,y,
     vx: random(-12,12),
     vy: random(-9,9),
     phase: Math.random()*Math.PI*2,
@@ -278,50 +223,45 @@ function addFrog(tier, x, y){
   });
   state.unlockedMax = Math.max(state.unlockedMax, tier);
 }
-
-// spawn
 function spawnBatch(n){
-  const cx = W/2, cy = H/2 + 40, R = Math.min(W,H) * 0.3;
+  const cx=W/2, cy=H/2+40, R=Math.min(W,H)*0.3;
   for(let i=0;i<n;i++){
-    const ang = Math.random()*Math.PI*2, r = random(0,R);
-    addFrog(1, Math.round(cx + Math.cos(ang)*r), Math.round(cy + Math.sin(ang)*r));
+    const ang = Math.random()*Math.PI*2, r=random(0,R);
+    addFrog(1, (cx + Math.cos(ang)*r)|0, (cy + Math.sin(ang)*r)|0);
   }
-  save();
-  requestPaint();
+  save(); requestPaint();
 }
 
-// --- merge pipeline: 2s wait -> move slowly to midpoint -> tier up ---
-const MERGE_SPEED = 140;      // slower animation
-const MERGE_RADIUS = 6;
-let mergePairs = [];          // active movements [{aId,bId,mx,my}]
-let pendingMerges = [];       // scheduled waits [{aId,bId,due}]
-const reserved = new Set();   // to avoid double scheduling
+// Merge pipeline
+const MERGE_SPEED = 140;   // slower for nicer animation
+const MERGE_RADIUS= 6;
+let mergePairs = [];       // active moves [{aId,bId,mx,my}]
+let pendingMerges = [];    // queued waits [{aId,bId,due}]
+const reserved = new Set();// prevent double-queue
 
 function scheduleMerge(a,b){
-  if (reserved.has(a.id) || reserved.has(b.id)) return;
+  if (reserved.has(a.id)||reserved.has(b.id)) return;
   reserved.add(a.id); reserved.add(b.id);
-  pendingMerges.push({ aId:a.id, bId:b.id, due: performance.now() + 2000 }); // 2s wait
+  pendingMerges.push({ aId:a.id, bId:b.id, due: performance.now()+2000 }); // 2s wait
 }
-function beginMerge(a, b) {
-  const mx = (a.x + b.x) / 2;
-  const my = (a.y + b.y) / 2;
-  a.merging = true; a.tx = mx; a.ty = my;
-  b.merging = true; b.tx = mx; b.ty = my;
-  mergePairs.push({ aId: a.id, bId: b.id, mx, my });
+function beginMerge(a,b){
+  const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+  a.merging=b.merging=true; a.tx=mx; a.ty=my; b.tx=mx; b.ty=my;
+  mergePairs.push({aId:a.id,bId:b.id,mx,my});
 }
 
 function updateFrogs(dt){
-  // start any pending merges whose 2s wait is over
+  // start pending auto merges after wait
   if (pendingMerges.length){
-    const now = performance.now();
-    for (let i = pendingMerges.length-1; i >= 0; i--){
-      const p = pendingMerges[i];
-      if (now < p.due) continue;
-      const a = state.frogs.find(f=>f.id===p.aId);
-      const b = state.frogs.find(f=>f.id===p.bId);
+    const now=performance.now();
+    for(let i=pendingMerges.length-1;i>=0;i--){
+      const p=pendingMerges[i];
+      if (now<p.due) continue;
+      const a=state.frogs.find(f=>f.id===p.aId);
+      const b=state.frogs.find(f=>f.id===p.bId);
       reserved.delete(p.aId); reserved.delete(p.bId);
       pendingMerges.splice(i,1);
-      if (a && b && !a.merging && !b.merging && a.tier===b.tier) beginMerge(a,b);
+      if (a&&b&&!a.merging&&!b.merging&&a.tier===b.tier) beginMerge(a,b);
     }
   }
 
@@ -331,59 +271,54 @@ function updateFrogs(dt){
     const yb = Math.sin(f.phase*2*Math.PI)*f.hopAmp;
     let cx=f.x, cy=f.y;
 
-    if(f.merging){
-      const dx = f.tx - cx, dy = f.ty - cy;
-      const d = Math.hypot(dx,dy);
-      if(d>0.1){
-        const sp = MERGE_SPEED*dt;
-        const nx = dx/d, ny = dy/d;
-        cx += Math.min(sp,d)*nx;
-        cy += Math.min(sp,d)*ny;
-      }
+    if (f.merging){
+      const dx=f.tx-cx, dy=f.ty-cy, d=Math.hypot(dx,dy);
+      if (d>0.1){ const sp=MERGE_SPEED*dt, nx=dx/d, ny=dy/d; cx+=Math.min(sp,d)*nx; cy+=Math.min(sp,d)*ny; }
     } else {
       cx += f.vx*dt; cy += f.vy*dt;
-      const margin=40, top=40;
-      if (cx<margin||cx>W-margin) f.vx*=-1, cx=Math.max(margin,Math.min(W-margin,cx));
-      if (cy<top||cy>H-margin)   f.vy*=-1, cy=Math.max(top,Math.min(H-margin,cy));
+      const m=40, top=40;
+      if (cx<m||cx>W-m) f.vx*=-1, cx=Math.max(m,Math.min(W-m,cx));
+      if (cy<top||cy>H-m) f.vy*=-1, cy=Math.max(top,Math.min(H-m,cy));
     }
     f.x=cx; f.y=cy+yb;
   }
 
-  // complete merges when both arrive
-  for (let i = mergePairs.length - 1; i >= 0; i--) {
-    const pair = mergePairs[i];
-    const a = state.frogs.find(f => f.id === pair.aId);
-    const b = state.frogs.find(f => f.id === pair.bId);
-    if (!a || !b) { mergePairs.splice(i,1); continue; }
-    const da = Math.hypot(a.x - pair.mx, a.y - pair.my);
-    const db = Math.hypot(b.x - pair.mx, b.y - pair.my);
-    if (da <= MERGE_RADIUS && db <= MERGE_RADIUS) {
-      const tier = Math.min(MAX_TIER, a.tier + 1);
-      state.frogs = state.frogs.filter(f => f.id !== a.id && f.id !== b.id);
+  // complete merges
+  for(let i=mergePairs.length-1;i>=0;i--){
+    const pair=mergePairs[i];
+    const a=state.frogs.find(f=>f.id===pair.aId);
+    const b=state.frogs.find(f=>f.id===pair.bId);
+    if(!a||!b){ mergePairs.splice(i,1); continue; }
+    const da=Math.hypot(a.x-pair.mx,a.y-pair.my);
+    const db=Math.hypot(b.x-pair.mx,b.y-pair.my);
+    if(da<=MERGE_RADIUS && db<=MERGE_RADIUS){
+      const tier=Math.min(MAX_TIER,a.tier+1);
+      state.frogs = state.frogs.filter(f=>f.id!==a.id && f.id!==b.id);
       addFrog(tier, pair.mx, pair.my);
       state.unlockedMax = Math.max(state.unlockedMax, tier);
       mergePairs.splice(i,1);
-      save();
-      renderBiggest();
+      save(); renderBiggest();
       if (state.autoMerge) autoMergeSweep();
     }
   }
 }
 
 function drawFrogs(){
-  // background first (scaled)
-  if (BG_IMG) ctx.drawImage(BG_IMG, 0, 0, canvas.width/(window.devicePixelRatio||1), canvas.height/(window.devicePixelRatio||1));
-  else ctx.clearRect(0,0,W,H);
-
+  // background
+  if (BG_IMG){
+    const pxRatio = window.devicePixelRatio||1;
+    ctx.drawImage(BG_IMG, 0,0, canvas.width/pxRatio, canvas.height/pxRatio);
+  } else {
+    ctx.clearRect(0,0,W,H);
+  }
+  // frogs
   for(const f of state.frogs){
     const img = FROG_IMG[f.tier];
-    const size = Math.max(40, Math.min(W,H) * 0.09) + f.tier*2; // scale with screen
+    const size = Math.max(40, Math.min(W,H)*0.09) + f.tier*2;
     const r = size/2;
-
-    if (img) ctx.drawImage(img, f.x - r, f.y - r, size, size);
-    else { ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, Math.PI*2); ctx.fillStyle = `hsl(${(f.tier*35)%360} 60% 60%)`; ctx.fill(); }
-
-    // NO selection rings anymore (requested)
+    if (img) ctx.drawImage(img, f.x-r, f.y-r, size, size);
+    else { ctx.beginPath(); ctx.arc(f.x,f.y,r,0,Math.PI*2); ctx.fillStyle=`hsl(${(f.tier*35)%360} 60% 60%)`; ctx.fill(); }
+    // (no selection rings)
   }
   document.getElementById('frogCount').textContent = state.frogs.length;
 }
@@ -403,165 +338,164 @@ function requestPaint(){
   animReq = requestAnimationFrame(loop);
 }
 
-// clicks (manual merge scheduling with 2s wait)
+// click (manual merge = immediate, no 2s delay)
 canvas.addEventListener('click', (ev)=>{
   const rect = canvas.getBoundingClientRect();
-  const ratioX = (canvas.width/(window.devicePixelRatio||1)) / rect.width;
-  const ratioY = (canvas.height/(window.devicePixelRatio||1)) / rect.height;
-  const x = (ev.clientX - rect.left) * ratioX;
-  const y = (ev.clientY - rect.top) * ratioY;
+  const pxRatio = window.devicePixelRatio || 1;
+  const scaleX = (canvas.width/pxRatio) / rect.width;
+  const scaleY = (canvas.height/pxRatio) / rect.height;
+  const x = (ev.clientX - rect.left) * scaleX;
+  const y = (ev.clientY - rect.top) * scaleY;
 
-  // find topmost frog
-  let hit=null;
+  let hit = null;
   for(let i=state.frogs.length-1;i>=0;i--){
     const f = state.frogs[i];
-    const size = Math.max(40, Math.min(W,H) * 0.09) + f.tier*2;
+    const size = Math.max(40, Math.min(W,H)*0.09) + f.tier*2;
     const r = size/2;
-    if (Math.hypot(f.x-x,f.y-y) <= r){ hit=f; break; }
+    if (Math.hypot(f.x-x,f.y-y)<=r){ hit=f; break; }
   }
   if (!hit){ selectedId=null; return; }
   if (selectedId===null){ selectedId = hit.id; return; }
   if (selectedId===hit.id){ selectedId=null; return; }
 
-  const a = state.frogs.find(f=>f.id===selectedId);
-  const b = hit;
-  if (a && b && a.tier===b.tier && !a.merging && !b.merging){
-  // cancel any pending auto-merge for these frogs, then merge immediately
-  for (let i = pendingMerges.length - 1; i >= 0; i--) {
-    const p = pendingMerges[i];
-    if (p.aId === a.id || p.bId === a.id || p.aId === b.id || p.bId === b.id) {
-      pendingMerges.splice(i, 1);
+  const a=state.frogs.find(f=>f.id===selectedId);
+  const b=hit;
+  if (a&&b&&a.tier===b.tier&&!a.merging&&!b.merging){
+    // cancel any pending auto-merge involving these
+    for(let i=pendingMerges.length-1;i>=0;i--){
+      const p = pendingMerges[i];
+      if (p.aId===a.id || p.bId===a.id || p.aId===b.id || p.bId===b.id) pendingMerges.splice(i,1);
     }
+    reserved.delete(a.id); reserved.delete(b.id);
+    beginMerge(a,b); // manual = immediate
   }
-  reserved.delete(a.id); reserved.delete(b.id);
-  beginMerge(a, b); // <-- no wait for manual merges
-}
   selectedId=null;
 });
 
-// auto-merge schedules (also 2s wait)
 document.getElementById('autoMergeToggle').addEventListener('change', (e)=>{
-  state.autoMerge = e.target.checked; save();
-  autoMergeSweep();
+  state.autoMerge = e.target.checked; save(); autoMergeSweep();
 });
 function autoMergeSweep(){
   if (!state.autoMerge) return;
-  const buckets = {};
-  for (const f of state.frogs){ if (!f.merging && !reserved.has(f.id)) (buckets[f.tier] ??= []).push(f); }
-  for (const tier in buckets){
-    const list = buckets[tier];
-    for (let i=0;i+1<list.length;i+=2){
-      const a=list[i], b=list[i+1];
-      scheduleMerge(a,b);
+  const buckets={};
+  for(const f of state.frogs){ if(!f.merging && !reserved.has(f.id)) (buckets[f.tier]??=[]).push(f); }
+  for(const tier in buckets){
+    const list=buckets[tier];
+    for(let i=0;i+1<list.length;i+=2){
+      scheduleMerge(list[i], list[i+1]); // waits 2s then merges
     }
   }
 }
 
-// pod actions
+// ----- Pod actions -----
 function closePod(){ try{ podModal.close(); }catch{} }
-releaseManualBtn.addEventListener('click', ()=>{ spawnBatch(state.podCount); state.podOpen=false; state.podCount=0; save(); closePod(); });
-releaseAutoBtn.addEventListener('click', ()=>{ spawnBatch(state.podCount); state.podOpen=false; state.podCount=0; state.autoMerge=true; document.getElementById('autoMergeToggle').checked=true; save(); closePod(); autoMergeSweep(); });
+releaseManualBtn.addEventListener('click', ()=>{
+  spawnBatch(state.podCount);
+  state.podOpen=false; state.podCount=0; save(); closePod();
+});
+releaseAutoBtn.addEventListener('click', ()=>{
+  spawnBatch(state.podCount);
+  state.podOpen=false; state.podCount=0; state.autoMerge=true;
+  document.getElementById('autoMergeToggle').checked=true;
+  save(); closePod(); autoMergeSweep();
+});
 
-// history
+// ----- History (with Safari-safe confirm) -----
 const historyList = document.getElementById('historyList');
+function confirmDialog(message, title='Confirm'){
+  return new Promise(resolve=>{
+    const dlg=document.getElementById('confirmDialog');
+    document.getElementById('confirmTitle').textContent=title;
+    document.getElementById('confirmMsg').textContent=message;
+    const yes=document.getElementById('confirmYes');
+    const no =document.getElementById('confirmNo');
+    const cleanup=()=>{ yes.onclick=null; no.onclick=null; try{ dlg.close(); }catch{} };
+    yes.onclick=()=>{ cleanup(); resolve(true); };
+    no.onclick =()=>{ cleanup(); resolve(false); };
+    if (typeof dlg.showModal==='function') dlg.showModal(); else dlg.setAttribute('open','');
+  });
+}
 function renderHistory(){
-  historyList.innerHTML = '';
+  historyList.innerHTML='';
   if (!state.history.length){
     historyList.innerHTML = `<div class="item"><div>No sessions yet. Run a timer!</div></div>`;
     return;
   }
-
-  state.history.forEach((h, idx) => {
-    const row = document.createElement('div');
-    row.className = 'item';
-
-    const title = document.createElement('div');
-    title.className = 'title';
-    title.textContent = h.title;
-
-    const meta = document.createElement('div');
-    meta.className = 'meta';
-    meta.textContent = mmss(h.seconds);
-
-    const del = document.createElement('button');
-    del.className = 'icon-btn';
-    del.title = 'Delete';
-    del.ariaLabel = 'Delete';
-    del.textContent = '🗑️';
-
-    del.addEventListener('click', () => {
-      const ok = confirm(`Delete "${h.title}" (${mmss(h.seconds)}) from history?`);
+  state.history.forEach((h,idx)=>{
+    const row=document.createElement('div'); row.className='item';
+    const title=document.createElement('div'); title.className='title'; title.textContent=h.title;
+    const meta=document.createElement('div'); meta.className='meta'; meta.textContent=mmss(h.seconds);
+    const del=document.createElement('button'); del.className='icon-btn'; del.title='Delete'; del.textContent='🗑️';
+    del.addEventListener('click', async ()=>{
+      const ok=await confirmDialog(`Delete "${h.title}" (${mmss(h.seconds)}) from history?`,'Delete session');
       if (!ok) return;
-      state.history.splice(idx, 1);
-      save();
-      renderHistory();
+      state.history.splice(idx,1); save(); renderHistory();
     });
-
-    row.appendChild(title);
-    row.appendChild(meta);     // .meta already has margin-left:auto in CSS
-    row.appendChild(del);      // sits on the far right, after duration
+    row.appendChild(title); row.appendChild(meta); row.appendChild(del);
     historyList.appendChild(row);
   });
 }
 
-// todos
-const todoTitle = document.getElementById('todoTitle');
-const todoSlider= document.getElementById('todoSlider');
-const todoMinTxt= document.getElementById('todoMinutesText');
-const addTodoBtn= document.getElementById('addTodoBtn');
-const todoList  = document.getElementById('todoList');
+// ----- To-Do -----
+const todoTitle=document.getElementById('todoTitle');
+const todoSlider=document.getElementById('todoSlider');
+const todoMinTxt=document.getElementById('todoMinutesText');
+const addTodoBtn=document.getElementById('addTodoBtn');
+const todoList=document.getElementById('todoList');
+
 function renderTodos(){
-  todoList.innerHTML = '';
-  if (!state.todos.length){ todoList.innerHTML = `<div class="item"><div>No goals yet.</div></div>`; return; }
+  todoList.innerHTML='';
+  if (!state.todos.length){
+    todoList.innerHTML = `<div class="item"><div>No goals yet.</div></div>`;
+    return;
+  }
   state.todos.forEach((t)=>{
-    const row = document.createElement('div');
-    row.className='item';
-    const startBtn = document.createElement('button'); startBtn.className='btn'; startBtn.textContent='Start';
-    startBtn.addEventListener('click', ()=>{
-      state.timerTitle = t.title; state.timerTargetSec = Math.max(60, t.minutes*60);
+    const row=document.createElement('div'); row.className='item';
+    const start=document.createElement('button'); start.className='btn'; start.textContent='Start';
+    start.addEventListener('click', ()=>{
+      state.timerTitle=t.title; state.timerTargetSec=Math.max(60, t.minutes*60);
       save(); updateTimerSetupUI();
-      state.timerStartEpoch = Date.now(); state.pretendSpawnCount = 0; save();
-      show('timer-run');
+      state.timerStartEpoch=Date.now(); state.pretendSpawnCount=0; save();
+      show('timer-run'); if (state.musicOn) startMusic();
     });
-    const title = document.createElement('div'); title.className='title'; title.textContent = t.title;
-    const meta  = document.createElement('div'); meta.className='meta'; meta.textContent = `${t.minutes}m`;
-    row.appendChild(startBtn); row.appendChild(title); row.appendChild(meta);
+    const title=document.createElement('div'); title.className='title'; title.textContent=t.title;
+    const meta=document.createElement('div'); meta.className='meta'; meta.textContent=`${t.minutes}m`;
+    row.appendChild(start); row.appendChild(title); row.appendChild(meta);
     todoList.appendChild(row);
   });
 }
 todoSlider.addEventListener('input', ()=>{ todoMinTxt.textContent = todoSlider.value; });
-addTodoBtn.addEventListener('click', ()=>{ const ttl=(todoTitle.value||'Untitled').trim(); const minutes=Math.max(1,Math.min(120,parseInt(todoSlider.value))); state.todos.push({title:ttl, minutes}); save(); todoTitle.value=''; todoSlider.value=25; todoMinTxt.textContent='25'; renderTodos(); });
+addTodoBtn.addEventListener('click', ()=>{
+  const ttl=(todoTitle.value||'Untitled').trim();
+  const minutes=Math.max(1, Math.min(120, parseInt(todoSlider.value)||25));
+  state.todos.push({title:ttl, minutes}); save();
+  todoTitle.value=''; todoSlider.value=25; todoMinTxt.textContent='25';
+  renderTodos();
+});
 
-function updateMusicUI(){
-  const on = !!state.musicOn;
-  const s = document.getElementById('musicToggleSetup');
-  const r = document.getElementById('musicToggleRun');
-  [s,r].forEach(btn=>{
-    if (!btn) return;
-    btn.classList.toggle('on', on);
-    btn.classList.toggle('off', !on);
-  });
-}
-
-// biggest
-const biggestImg = document.getElementById('biggestImg');
+// ----- Biggest -----
+const biggestImg=document.getElementById('biggestImg');
 function renderBiggest(){
-  const info = document.getElementById('biggestInfo');
-  const tier = state.unlockedMax || 1;
-  info.textContent = `Highest Tier: ${tier} – ${TIER_NAMES[tier]||'Frog'}`;
-  const img = FROG_IMG[tier];
-  if (img){ biggestImg.src = img.src; biggestImg.style.display='block'; } else { biggestImg.style.display='none'; }
+  const info=document.getElementById('biggestInfo');
+  const tier=state.unlockedMax||1;
+  info.textContent=`Highest Tier: ${tier} – ${TIER_NAMES[tier]||'Frog'}`;
+  const img=FROG_IMG[tier];
+  if (img){ biggestImg.src=img.src; biggestImg.style.display='block'; }
+  else { biggestImg.style.display='none'; }
 }
 
-// boot
+// ----- Boot -----
 function restoreUI(){
   load();
   updateTimerSetupUI();
-  renderHistory(); renderTodos(); renderBiggest();
   document.getElementById('autoMergeToggle').checked = !!state.autoMerge;
   updateMusicUI();
+  renderHistory(); renderTodos(); renderBiggest();
   if (state.frogs.length>0) requestPaint();
-  if (state.podOpen && state.podCount>0){ podCountEl.textContent = state.podCount; podModal.showModal(); }
+  if (state.podOpen && state.podCount>0){ podCountEl.textContent=state.podCount; try{ podModal.showModal(); }catch{} }
 }
 Promise.all([loadImages(TIER_FILES)]).then(()=>{ restoreUI(); show('timer-setup'); });
-document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='visible' && document.getElementById('timer-run').classList.contains('visible')) tick(); });
+
+document.addEventListener('visibilitychange', ()=>{
+  if (document.visibilityState==='visible' && document.getElementById('timer-run').classList.contains('visible')) tick();
+});

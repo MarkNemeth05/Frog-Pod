@@ -39,7 +39,6 @@
           <button id="musicToggleSetup" class="icon-toggle on" title="Music on/off">🎧</button>
           <button id="startTimerBtn" class="btn primary">Start</button>
         </div>
-
       </div>
     </section>
 
@@ -52,7 +51,6 @@
           <button id="musicToggleRun" class="icon-toggle on" title="Music on/off">🎧</button>
           <button id="cancelTimerBtn" class="btn">Cancel</button>
         </div>
-
       </div>
     </section>
 
@@ -68,16 +66,18 @@
 
     <!-- POND -->
     <section id="pond" class="view">
-      <div class="row">
-        <label class="switch">
-          <input id="autoMergeToggle" type="checkbox">
-          <span>Auto-merge</span>
-        </label>
-        <div class="stat">Frogs: <span id="frogCount">0</span></div>
+      <div class="card">
+        <div class="row">
+          <label class="switch">
+            <input id="autoMergeToggle" type="checkbox">
+            <span>Auto-merge (2s wait)</span>
+          </label>
+          <div class="stat">Frogs: <span id="frogCount">0</span></div>
+        </div>
+        <!-- No width/height; JS will size for retina/phone -->
+        <canvas id="pondCanvas"></canvas>
+        <div class="tip">Tip: tap two same-tier frogs to merge (manual merges are instant).</div>
       </div>
-      <!-- NOTE: no width/height attributes; JS will size for retina & phone -->
-      <canvas id="pondCanvas"></canvas>
-      <div class="tip">Tip: tap two same-tier frogs to merge</div>
     </section>
 
     <!-- HISTORY -->
@@ -109,14 +109,16 @@
     </section>
   </main>
 
+  <!-- Reusable confirm dialog (Safari-safe) -->
+  <dialog id="confirmDialog">
+    <h3 id="confirmTitle" style="margin:0 0 8px">Confirm</h3>
+    <p id="confirmMsg" style="margin:0 0 12px">Are you sure?</p>
+    <div class="modal-actions">
+      <button id="confirmNo" class="btn">Cancel</button>
+      <button id="confirmYes" class="btn primary">Delete</button>
+    </div>
+  </dialog>
+
   <script src="main.js"></script>
 </body>
-<dialog id="confirmDialog">
-  <h3 id="confirmTitle" style="margin:0 0 8px">Confirm</h3>
-  <p id="confirmMsg" style="margin:0 0 12px">Are you sure?</p>
-  <div class="modal-actions">
-    <button id="confirmNo" class="btn">Cancel</button>
-    <button id="confirmYes" class="btn primary">Delete</button>
-  </div>
-</dialog>
 </html>
