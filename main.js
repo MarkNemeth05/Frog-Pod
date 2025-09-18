@@ -21,7 +21,7 @@ const state = {
   unlockedMax: 1
 };
 
-const SPAWN_MS = 3000;
+const SPAWN_MS = 5 * 60 * 1000;
 let W = 540, H = 700;        // logical canvas size (updated on resize)
 
 // persistence
