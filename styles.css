@@ -38,7 +38,16 @@ dialog{ border:none; border-radius:14px; padding:16px; max-width:520px; }
 .biggest-img{ width:128px; height:128px; object-fit:contain; }
 
 /* pond */
-#pondCanvas{ width:100%; border:1px solid var(--soft); border-radius:12px; background:#eaf3ee; }
+#pondCanvas{
+  width:100%;
+  border:1px solid var(--soft);
+  border-radius:12px;
+  display:block;                 /* removes any baseline gap */
+  background:
+    #fff
+    url('assets/frogs/Background.png') center 68% / cover no-repeat; /* center + slight downshift */
+  overflow:hidden;               /* keep rounded corners clean */
+}
 
 /* icon toggles + history delete */
 .icon-toggle{

@@ -204,10 +204,6 @@ function loadImages(map){
   }));
   return Promise.all(jobs);
 }
-let BG_IMG=null; (()=>{
-  const img = new Image(); img.onload=()=>{ BG_IMG=img; };
-  img.src='assets/frogs/Background.png';
-})();
 
 function random(a,b){ return Math.random()*(b-a)+a; }
 function addFrog(tier,x,y){
@@ -305,33 +301,8 @@ function updateFrogs(dt){
 
 function drawFrogs(){
   // background
-  if (BG_IMG){
-  const dpr = window.devicePixelRatio || 1;
-  const cw = canvas.width / dpr, ch = canvas.height / dpr;   // canvas CSS size
-  const iw = BG_IMG.naturalWidth || BG_IMG.width;
-  const ih = BG_IMG.naturalHeight || BG_IMG.height;
+  ctx.clearRect(0, 0, W, H); // CSS now handles the pod image
 
-  // Scale to COVER the canvas
-  const scale = Math.max(cw / iw, ch / ih);
-  const dw = iw * scale;
-  const dh = ih * scale;
-
-  // ---- anchors (tweak these two numbers only) ----
-  // Where the "pod center" sits INSIDE the image (as a fraction of image height)
-  const IMG_ANCHOR_Y = 0.86;     // try 0.80–0.92 depending on your art
-  // Where you WANT that center on the canvas (fraction of canvas height)
-  const CANVAS_ANCHOR_Y = 0.88;  // 0.88 places it near the bottom
-
-  // Center horizontally; align vertically by anchors
-  const dx = (cw - dw) / 2;
-  const dy = (CANVAS_ANCHOR_Y * ch) - (IMG_ANCHOR_Y * dh);
-
-  const OFFSET_Y = -(canvas.height / (window.devicePixelRatio || 1)) * 0.07; // move image up ~7%
-  ctx.drawImage(BG_IMG, dx, dy + OFFSET_Y, dw, dh);
-
-} else {
-  ctx.clearRect(0,0,W,H);
-}
 
 
   // frogs
