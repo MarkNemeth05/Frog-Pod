@@ -314,7 +314,6 @@ function drawFrogs(){
     else { ctx.beginPath(); ctx.arc(f.x,f.y,r,0,Math.PI*2); ctx.fillStyle=`hsl(${(f.tier*35)%360} 60% 60%)`; ctx.fill(); }
     // (no selection rings)
   }
-  document.getElementById('frogCount').textContent = state.frogs.length;
 }
 
 function requestPaint(){
