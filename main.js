@@ -326,7 +326,9 @@ function drawFrogs(){
   const dx = (cw - dw) / 2;
   const dy = (CANVAS_ANCHOR_Y * ch) - (IMG_ANCHOR_Y * dh);
 
-  ctx.drawImage(BG_IMG, dx, dy, dw, dh);
+  const OFFSET_Y = -(canvas.height / (window.devicePixelRatio || 1)) * 0.07; // move image up ~7%
+  ctx.drawImage(BG_IMG, dx, dy + OFFSET_Y, dw, dh);
+
 } else {
   ctx.clearRect(0,0,W,H);
 }
