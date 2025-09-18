@@ -20,6 +20,70 @@ const state = {
   frogs: [],
   unlockedMax: 1
 };
+// --- MUSIC TRACKS (add your MP3 filenames here) ---
+const TRACKS = [
+  'assets/audio/track1.mp3',
+  'assets/audio/track2.mp3',
+  'assets/audio/track3.mp3',
+  'assets/audio/track4.mp3',
+  'assets/audio/track5.mp3',
+  'assets/audio/track6.mp3',
+  'assets/audio/track7.mp3',
+  'assets/audio/track8.mp3',
+  'assets/audio/track9.mp3',
+  'assets/audio/track10.mp3',
+  'assets/audio/track11.mp3',
+  'assets/audio/track12.mp3',
+  'assets/audio/track13.mp3',
+  'assets/audio/track14.mp3',
+  'assets/audio/track15.mp3',
+  'assets/audio/track16.mp3',
+  'assets/audio/track17.mp3',
+  'assets/audio/track18.mp3',
+  'assets/audio/track19.mp3',
+  'assets/audio/track20.mp3',
+  'assets/audio/track21.mp3',
+  'assets/audio/track22.mp3',
+  'assets/audio/track23.mp3',
+  'assets/audio/track24.mp3',
+  'assets/audio/track25.mp3',
+  'assets/audio/track26.mp3',
+  // add as many as you like
+];
+// Simple shuffle player that runs while timer is active
+const audio = new Audio();
+audio.preload = 'auto';
+let currentTrack = -1;
+
+function pickNextTrack() {
+  if (TRACKS.length === 0) return null;
+  // pick a random index different from current, if possible
+  let idx = Math.floor(Math.random() * TRACKS.length);
+  if (TRACKS.length > 1 && idx === currentTrack) {
+    idx = (idx + 1) % TRACKS.length;
+  }
+  currentTrack = idx;
+  return TRACKS[idx];
+}
+
+function startMusic(){
+  if (!state.musicOn || !state.timerStartEpoch || TRACKS.length === 0) return;
+  const src = pickNextTrack();
+  if (!src) return;
+  audio.src = src;
+  audio.currentTime = 0;
+  audio.play().catch(()=>{/* autoplay blocked? user just clicked Start so should be fine */});
+}
+
+function stopMusic(){
+  try { audio.pause(); } catch {}
+  audio.currentTime = 0;
+}
+
+audio.addEventListener('ended', ()=>{
+  // continue only if timer is still running and music is on
+  if (state.timerStartEpoch && state.musicOn) startMusic();
+});
 
 const SPAWN_MS = const SPAWN_MS = 30 * 60 * 1000; // 30 minutes per spawn
 let W = 540, H = 700;        // logical canvas size (updated on resize)
@@ -66,6 +130,23 @@ const timerSlider  = document.getElementById('timerSlider');
 const timerMinTxt  = document.getElementById('timerMinutesText');
 const timerPreview = document.getElementById('timerPreview');
 const startTimerBtn= document.getElementById('startTimerBtn');
+const musicToggleSetup = document.getElementById('musicToggleSetup');
+const musicToggleRun   = document.getElementById('musicToggleRun');
+
+[musicToggleSetup, musicToggleRun].forEach(btn=>{
+  if (!btn) return;
+  btn.addEventListener('click', ()=>{
+    state.musicOn = !state.musicOn;
+    save();
+    updateMusicUI();
+    if (!state.musicOn) {
+      stopMusic();
+    } else {
+      // if timer is running and user re-enabled, resume
+      if (state.timerStartEpoch) startMusic();
+    }
+  });
+});
 
 function mmss(sec){ sec=Math.max(0,Math.floor(sec)); const m=(sec/60|0), s=sec%60; return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
 function updateTimerSetupUI(){
@@ -76,7 +157,15 @@ function updateTimerSetupUI(){
 }
 timerTitleEl.addEventListener('input', () => { state.timerTitle = timerTitleEl.value || 'Study'; save(); });
 timerSlider.addEventListener('input', () => { state.timerTargetSec = Math.min(120, Math.max(1, parseInt(timerSlider.value))) * 60; updateTimerSetupUI(); save(); });
-startTimerBtn.addEventListener('click', () => { state.timerStartEpoch = Date.now(); state.pretendSpawnCount = 0; save(); show('timer-run'); });
+startTimerBtn.addEventListener('click', () => {
+  state.timerStartEpoch = Date.now();
+  state.pretendSpawnCount = 0;
+  save();
+  show('timer-run');
+  // start music on user gesture (passes iOS autoplay)
+  if (state.musicOn) startMusic();
+});
+
 
 // ------- Timer run -------
 const countdownEl = document.getElementById('countdown');
@@ -99,6 +188,7 @@ function finishTimer(finalSeconds){
   state.pretendSpawnCount = 0;
   save();
   podCountEl.textContent = state.podCount;
+  stopMusic();
   podModal.showModal();
   show('pond');
 }
@@ -442,6 +532,17 @@ function renderTodos(){
 todoSlider.addEventListener('input', ()=>{ todoMinTxt.textContent = todoSlider.value; });
 addTodoBtn.addEventListener('click', ()=>{ const ttl=(todoTitle.value||'Untitled').trim(); const minutes=Math.max(1,Math.min(120,parseInt(todoSlider.value))); state.todos.push({title:ttl, minutes}); save(); todoTitle.value=''; todoSlider.value=25; todoMinTxt.textContent='25'; renderTodos(); });
 
+function updateMusicUI(){
+  const on = !!state.musicOn;
+  const s = document.getElementById('musicToggleSetup');
+  const r = document.getElementById('musicToggleRun');
+  [s,r].forEach(btn=>{
+    if (!btn) return;
+    btn.classList.toggle('on', on);
+    btn.classList.toggle('off', !on);
+  });
+}
+
 // biggest
 const biggestImg = document.getElementById('biggestImg');
 function renderBiggest(){
@@ -458,6 +559,7 @@ function restoreUI(){
   updateTimerSetupUI();
   renderHistory(); renderTodos(); renderBiggest();
   document.getElementById('autoMergeToggle').checked = !!state.autoMerge;
+  updateMusicUI();
   if (state.frogs.length>0) requestPaint();
   if (state.podOpen && state.podCount>0){ podCountEl.textContent = state.podCount; podModal.showModal(); }
 }
