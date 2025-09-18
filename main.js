@@ -12,7 +12,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ----- App state -----
-const SKEY = 'frogpod_state_v3';
+const SKEY = 'frogpond_state_v3';
 const state = {
   timerTitle: 'Study',
   timerTargetSec: 25 * 60,

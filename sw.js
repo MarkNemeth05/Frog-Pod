@@ -1,4 +1,4 @@
-const CACHE = 'frogpod-v9';
+const CACHE = 'frogpond-v3';
 const ASSETS = [
   './',
   './index.html',
