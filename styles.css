@@ -52,16 +52,27 @@ dialog{ border:none; border-radius:14px; padding:16px; max-width:520px; }
 .dial-knob{ fill:#fff; stroke:var(--green); stroke-width:4; cursor:pointer; }
 
 /* pond */
-.pond-wrap{ position:relative; }
+.pond-wrap{ position: relative; }
+
 #pondCanvas{
   width:100%;
   display:block;
   background:url('assets/frogs/Background.png') center 70% / cover no-repeat;
-  border:none; border-radius:0;
+  border:none;
+  border-radius:16px;   /* rounded pond */
+  overflow:hidden;      /* clip to rounded corners */
 }
+
 .pond-hud{
-  position:absolute; top:10px; right:10px;
-  background:rgba(255,255,255,.85); border:1px solid var(--soft); border-radius:999px;
-  padding:6px 10px; font-size:14px; display:flex; align-items:center; gap:6px; backdrop-filter:blur(4px);
+  position:absolute;
+  top:12px;             /* corner position */
+  right:12px;           /* move to left? change to: left:12px; right:auto; */
+  background:rgba(255,255,255,.85);
+  border:1px solid var(--soft);
+  border-radius:999px;
+  padding:6px 10px;
+  font-size:14px;
+  display:flex; align-items:center; gap:6px;
+  backdrop-filter:blur(4px);
 }
-.pond-hud input{ accent-color:var(--green); }
+.pond-hud input{ accent-color: var(--green); }
