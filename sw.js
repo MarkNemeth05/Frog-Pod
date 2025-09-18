@@ -16,5 +16,24 @@ self.addEventListener('activate', (e)=>{
   e.waitUntil(caches.keys().then(keys=>Promise.all(keys.map(k=>k!==CACHE && caches.delete(k)))));
 });
 self.addEventListener('fetch', (e)=>{
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+  const req = e.request;
+  // runtime cache for audio files
+  if (req.destination === 'audio' || req.url.endsWith('.mp3')) {
+    e.respondWith(
+      caches.open(CACHE).then(async cache => {
+        const cached = await cache.match(req);
+        if (cached) return cached;
+        try {
+          const res = await fetch(req);
+          cache.put(req, res.clone());
+          return res;
+        } catch (err) {
+          return fetch(req); // fallback
+        }
+      })
+    );
+    return;
+  }
+  // default: cache-first for app shell
+  e.respondWith(caches.match(req).then(r => r || fetch(req)));
 });
