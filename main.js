@@ -306,11 +306,25 @@ function updateFrogs(dt){
 function drawFrogs(){
   // background
   if (BG_IMG){
-    const pxRatio = window.devicePixelRatio||1;
-    ctx.drawImage(BG_IMG, 0,0, canvas.width/pxRatio, canvas.height/pxRatio);
-  } else {
-    ctx.clearRect(0,0,W,H);
-  }
+  const dpr = window.devicePixelRatio || 1;
+  const cw = canvas.width / dpr, ch = canvas.height / dpr;  // canvas CSS size
+  const iw = BG_IMG.naturalWidth || BG_IMG.width;
+  const ih = BG_IMG.naturalHeight || BG_IMG.height;
+
+  // scale to COVER the canvas, then bottom-align and center horizontally
+  const scale = Math.max(cw / iw, ch / ih);
+  const dw = iw * scale;
+  const dh = ih * scale;
+
+  const dx = (cw - dw) / 2;  // center X
+  const bottomOffset = 0;    // tweak (+/- px) if you want to nudge the pod up/down
+  const dy = ch - dh + bottomOffset; // stick to bottom
+
+  ctx.drawImage(BG_IMG, dx, dy, dw, dh);
+} else {
+  ctx.clearRect(0,0,W,H);
+}
+
   // frogs
   for(const f of state.frogs){
     const img = FROG_IMG[f.tier];
