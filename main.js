@@ -133,9 +133,9 @@ function resizeCanvas(){
 resizeCanvas(); window.addEventListener('resize', resizeCanvas);
 
 let selectedId=null, animReq=null;
-const TIER_NAMES={1:'Baby Frog',2:'Emo Teen Frog',3:'Smart Frog',4:'Business Frog',5:'Rich Frog',6:'Fit Frog',7:'Old Frog',8:'God Frog',9:'Galaxy Frog'};
+const TIER_NAMES={1:'Baby Frog',2:'Emo Teen Frog',3:'Smart Frog',4:'Business Frog',5:'Rich Frog',6:'Fit Frog',7:'Old Frog',8:'Angel Frog',9:'Galaxy Frog'};
 const MAX_TIER=9;
-const TIER_FILES={1:'assets/frogs/BabyFrog.png',2:'assets/frogs/TeenFrog.png',3:'assets/frogs/SmartFrog.png',4:'assets/frogs/BusinessFrog.png',5:'assets/frogs/RichFrog.png',6:'assets/frogs/FitFrog.png',7:'assets/frogs/OldFrog.png',8:'assets/frogs/GodFrog.png',9:'assets/frogs/GalaxyFrog.png'};
+const TIER_FILES={1:'assets/frogs/BabyFrog.PNG',2:'assets/frogs/TeenFrog.PNG',3:'assets/frogs/SmartFrog.PNG',4:'assets/frogs/BusinessFrog.PNG',5:'assets/frogs/RichFrog.PNG',6:'assets/frogs/FitFrog.PNG',7:'assets/frogs/OldFrog.PNG',8:'assets/frogs/AngelFrog.PNG',9:'assets/frogs/GalaxyFrog.PNG'};
 const FROG_IMG={}; function loadImages(m){ return Promise.all(Object.entries(m).map(([k,src])=>new Promise(r=>{ const i=new Image(); i.onload=()=>{FROG_IMG[k]=i;r();}; i.onerror=()=>r(); i.src=src; }))); }
 function random(a,b){ return Math.random()*(b-a)+a; }
 function addFrog(tier,x,y){
