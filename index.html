@@ -39,7 +39,13 @@
           <defs><clipPath id="frogClip"><circle cx="120" cy="120" r="76"/></clipPath></defs>
           <circle cx="120" cy="120" r="90" class="dial-track"/>
           <circle id="dialArc" cx="120" cy="120" r="90" class="dial-arc"/>
-          <image href="assets/frogs/BabyFrog.PNG" x="44" y="44" width="152" height="152" clip-path="url(#frogClip)"/>
+          <image id="frogImg"
+            href="assets/frogs/BabyFrog.png"
+            x="44" y="44" width="152" height="152"
+            preserveAspectRatio="xMidYMid meet"
+            clip-path="url(#frogClip)"
+            transform="translate(120,120) scale(1.18) translate(-120,-120) translate(0,-6)"/>
+
           <circle id="dialKnob" cx="120" cy="30" r="10" class="dial-knob"/>
         </svg>
 
